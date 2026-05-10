@@ -32,38 +32,35 @@
     <script>
         let voicingState = {};
 
-        // --- 1. 定番プリセット (sus4を強化) ---
+        // --- 1. 定番プリセット (sus4を最優先で定義) ---
         const PRESETS = {
             "C": [null, 3, 2, 0, 1, 0], "G": [3, 2, 0, 0, 0, 3], "A": [null, 0, 2, 2, 2, 0],
             "E": [0, 2, 2, 1, 0, 0], "D": [null, null, 0, 2, 3, 2], "Am": [null, 0, 2, 2, 1, 0],
             "Em": [0, 2, 2, 0, 0, 0], "F": [1, 3, 3, 2, 1, 1],
-            // sus4 プリセット
-            "Csus4": [null, 3, 3, 0, 1, null],
+            "Csus4": [null, 3, 3, 0, 1, 1],
             "Dsus4": [null, null, 0, 2, 3, 3],
             "Esus4": [0, 2, 2, 2, 0, 0],
             "Asus4": [null, 0, 2, 2, 3, 0],
-            "Gsus4": [3, null, 0, 0, 1, 3],
-            // 分数コード等
-            "G/B": [null, 2, 0, 0, 3, 3], "D/F#": [2, null, 0, 2, 3, 2], "Cadd9": [null, 3, 2, 0, 3, 0]
+            "Gsus4": [3, 3, 0, 0, 3, 3],
+            "Fsus4": [1, 3, 3, 3, 1, 1],
+            "G/B": [null, 2, 0, 0, 3, 3], "D/F#": [2, null, 0, 2, 3, 2]
         };
 
         const SHAPES = {
             "E": { 
                 "major": [0, 2, 2, 1, 0, 0], "minor": [0, 2, 2, 0, 0, 0], "7": [0, 2, 0, 1, 0, 0], 
-                "maj7": [0, 2, 1, 1, 0, null], "m7": [0, 2, 0, 0, 0, 0], "9": [0, 2, 0, 1, 0, 2],
-                "sus4": [0, 2, 2, 2, 0, 0] // Eスタイル sus4
+                "maj7": [0, 2, 1, 1, 0, null], "m7": [0, 2, 0, 0, 0, 0], "sus4": [0, 2, 2, 2, 0, 0]
             },
             "A": { 
                 "major": [null, 0, 2, 2, 2, 0], "minor": [null, 0, 2, 2, 1, 0], "7": [null, 0, 2, 0, 2, 0], 
-                "maj7": [null, 0, 2, 1, 2, 0], "m7": [null, 0, 2, 0, 1, 0], "9": [null, 0, 2, 0, 2, 3],
-                "sus4": [null, 0, 2, 2, 3, 0] // Aスタイル sus4
+                "maj7": [null, 0, 2, 1, 2, 0], "m7": [null, 0, 2, 0, 1, 0], "sus4": [null, 0, 2, 2, 3, 0]
             }
         };
 
         function getAllVoicings(chordName) {
             let voicings = [];
             
-            // 1. プリセット確認
+            // 1. プリセット確認（完全一致）
             if (PRESETS[chordName]) {
                 voicings.push({ frets: PRESETS[chordName], minFret: -1 });
             }
@@ -86,17 +83,24 @@
                 }
             }
 
-            // 3. 自動計算 (sus4 対応)
+            // 3. 自動計算 (Tonal.js使用)
             const chord = Tonal.Chord.get(chordName);
             if (!chord.empty) {
-                // type判定ロジックを修正
+                // ここでsus4判定を強化
                 let type = "major";
-                if (chord.type.includes("suspended") || chord.name.includes("sus4")) type = "sus4";
-                else if (chord.type.includes("minor seventh")) type = "m7";
-                else if (chord.type.includes("major seventh")) type = "maj7";
-                else if (chord.type.includes("minor")) type = "minor";
-                else if (chord.type.includes("seventh")) type = "7";
-                else if (chord.type.includes("ninth")) type = "9";
+                const nameLower = chordName.toLowerCase();
+                
+                if (nameLower.includes("sus4") || nameLower.includes("suspended")) {
+                    type = "sus4";
+                } else if (nameLower.includes("m7") || chord.type.includes("minor seventh")) {
+                    type = "m7";
+                } else if (nameLower.includes("maj7") || chord.type.includes("major seventh")) {
+                    type = "maj7";
+                } else if (nameLower.includes("m") && !nameLower.includes("maj")) {
+                    type = "minor";
+                } else if (nameLower.includes("7")) {
+                    type = "7";
+                }
 
                 const rootChroma = Tonal.Note.chroma(chord.tonic);
                 const stringBaseNotes = [4, 9, 2, 7, 11, 4];
@@ -107,33 +111,52 @@
                     let offset = rootChroma - stringBaseNotes[rIdx];
                     while (offset < 0) offset += 12;
                     const full = shape.map(f => f === null ? null : f + offset);
-                    const active = full.filter(f => f !== null && f > 0);
-                    voicings.push({ frets: full, minFret: active.length > 0 ? Math.min(...active) : 0 });
+                    
+                    // 重複チェック
+                    if (!voicings.some(v => JSON.stringify(v.frets) === JSON.stringify(full))) {
+                        const active = full.filter(f => f !== null && f > 0);
+                        voicings.push({ frets: full, minFret: active.length > 0 ? Math.min(...active) : 0 });
+                    }
                 });
             }
 
+            // 重複排除
             let unique = [];
             let seen = new Set();
             voicings.forEach(v => {
                 let s = JSON.stringify(v.frets);
                 if (!seen.has(s)) { unique.push(v); seen.add(s); }
             });
+
+            // minFret順にソートして、クリックでハイポジションへ
             return unique.sort((a, b) => a.minFret - b.minFret).map(v => v.frets);
         }
 
         function drawChord(name, container) {
             if (!voicingState[name]) voicingState[name] = 0;
             const all = getAllVoicings(name);
-            if (all.length === 0) return;
+            if (all.length === 0) {
+                // 見つからない場合は名前だけ表示
+                const card = document.createElement('div');
+                card.className = 'chord-card';
+                card.innerHTML = `<p class="chord-name">${name}</p><p style="font-size:12px; color:red;">Not Found</p>`;
+                container.appendChild(card);
+                return;
+            };
+
             const frets = all[voicingState[name] % all.length];
             const active = frets.filter(f => f !== null && f > 0);
             const minF = active.length > 0 ? Math.min(...active) : 0;
             let baseF = minF > 2 ? minF : 0;
+
             const chordFormat = frets.map((f, i) => [6 - i, f === null ? 'x' : (f > 0 && baseF > 0 ? f - baseF + 1 : f)]);
 
             const card = document.createElement('div');
             card.className = 'chord-card';
-            card.onclick = () => { voicingState[name]++; updateChords(); };
+            card.onclick = () => { 
+                voicingState[name]++; 
+                updateChords(); 
+            };
             card.innerHTML = `<p class="chord-name">${name}</p>`;
             const diagram = document.createElement('div');
             new vexchords.ChordBox(diagram, { width: 160, height: 180, circleRadius: 4, numFrets: 5, strokeWidth: 2 }).draw({ chord: chordFormat, position: baseF });
@@ -144,7 +167,9 @@
             const input = document.getElementById('progression').value;
             const container = document.getElementById('chord-container');
             container.innerHTML = '';
-            input.trim().split(/\s+/).forEach(name => name && drawChord(name, container));
+            // カンマ、スペース、改行で区切ってループ
+            const chords = input.trim().split(/[\s,]+/);
+            chords.forEach(name => name && drawChord(name, container));
         }
         updateChords();
     </script>
