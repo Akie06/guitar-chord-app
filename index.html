@@ -22,7 +22,7 @@
 
     <h1>ギターコード検索ちゃん🎸</h1>
     <div class="controls">
-        <input type="text" id="progression" placeholder="例: C G/B Am7 D/F# Cadd9" value="C G/B Am7 D/F# Cadd9">
+        <input type="text" id="progression" placeholder="例: D Dsus4 G Gsus4" value="D Dsus4 G Gsus4">
         <button onclick="updateChords()">表示</button>
         <p class="usage-note">＊指板表をクリックすると、ハイポジションコードが数パターン表示できます。</p>
     </div>
@@ -32,26 +32,43 @@
     <script>
         let voicingState = {};
 
+        // --- 1. 定番プリセット (sus4を強化) ---
         const PRESETS = {
             "C": [null, 3, 2, 0, 1, 0], "G": [3, 2, 0, 0, 0, 3], "A": [null, 0, 2, 2, 2, 0],
             "E": [0, 2, 2, 1, 0, 0], "D": [null, null, 0, 2, 3, 2], "Am": [null, 0, 2, 2, 1, 0],
-            "Em": [0, 2, 2, 0, 0, 0], "Dm": [null, null, 0, 2, 3, 1], "F": [1, 3, 3, 2, 1, 1],
-            "G/B": [null, 2, 0, 0, 3, 3], "D/F#": [2, null, 0, 2, 3, 2], "F/A": [null, 0, 3, 2, 1, 1],
-            "C/G": [3, 3, 2, 0, 1, 0], "C/E": [0, 3, 2, 0, 1, 0], "Am/G": [3, 0, 2, 2, 1, 0],
-            "D/A": [null, 0, 0, 2, 3, 2], "E/G#": [4, null, 2, 1, 0, 0], "A/C#": [null, 4, 2, 2, 2, null],
-            "Cadd9": [null, 3, 2, 0, 3, 0], "Gadd9": [3, 0, 0, 0, 0, 3], "Aadd9": [null, 0, 2, 4, 2, 0],
-            "D9": [null, 5, 4, 5, 5, null], "E9": [null, 7, 6, 7, 7, null], "C9": [null, 3, 2, 3, 3, null]
+            "Em": [0, 2, 2, 0, 0, 0], "F": [1, 3, 3, 2, 1, 1],
+            // sus4 プリセット
+            "Csus4": [null, 3, 3, 0, 1, null],
+            "Dsus4": [null, null, 0, 2, 3, 3],
+            "Esus4": [0, 2, 2, 2, 0, 0],
+            "Asus4": [null, 0, 2, 2, 3, 0],
+            "Gsus4": [3, null, 0, 0, 1, 3],
+            // 分数コード等
+            "G/B": [null, 2, 0, 0, 3, 3], "D/F#": [2, null, 0, 2, 3, 2], "Cadd9": [null, 3, 2, 0, 3, 0]
         };
 
         const SHAPES = {
-            "E": { "major": [0, 2, 2, 1, 0, 0], "minor": [0, 2, 2, 0, 0, 0], "7": [0, 2, 0, 1, 0, 0], "maj7": [0, 2, 1, 1, 0, null], "m7": [0, 2, 0, 0, 0, 0], "9": [0, 2, 0, 1, 0, 2] },
-            "A": { "major": [null, 0, 2, 2, 2, 0], "minor": [null, 0, 2, 2, 1, 0], "7": [null, 0, 2, 0, 2, 0], "maj7": [null, 0, 2, 1, 2, 0], "m7": [null, 0, 2, 0, 1, 0], "9": [null, 0, 2, 0, 2, 3] }
+            "E": { 
+                "major": [0, 2, 2, 1, 0, 0], "minor": [0, 2, 2, 0, 0, 0], "7": [0, 2, 0, 1, 0, 0], 
+                "maj7": [0, 2, 1, 1, 0, null], "m7": [0, 2, 0, 0, 0, 0], "9": [0, 2, 0, 1, 0, 2],
+                "sus4": [0, 2, 2, 2, 0, 0] // Eスタイル sus4
+            },
+            "A": { 
+                "major": [null, 0, 2, 2, 2, 0], "minor": [null, 0, 2, 2, 1, 0], "7": [null, 0, 2, 0, 2, 0], 
+                "maj7": [null, 0, 2, 1, 2, 0], "m7": [null, 0, 2, 0, 1, 0], "9": [null, 0, 2, 0, 2, 3],
+                "sus4": [null, 0, 2, 2, 3, 0] // Aスタイル sus4
+            }
         };
 
         function getAllVoicings(chordName) {
             let voicings = [];
-            if (PRESETS[chordName]) voicings.push({ frets: PRESETS[chordName], minFret: -1 });
+            
+            // 1. プリセット確認
+            if (PRESETS[chordName]) {
+                voicings.push({ frets: PRESETS[chordName], minFret: -1 });
+            }
 
+            // 2. 分数コード判定
             if (chordName.includes("/")) {
                 const [rootPart, bassPart] = chordName.split("/");
                 if (PRESETS[rootPart]) {
@@ -63,18 +80,27 @@
                         if (offset <= 12) {
                             let newFret = [...PRESETS[rootPart]];
                             newFret[sIdx] = offset;
-                            if (sIdx === 0 && newFret[1] !== null && Math.abs(newFret[1]-offset) > 4) newFret[1] = null;
                             voicings.push({ frets: newFret, minFret: offset });
                         }
                     });
                 }
             }
 
+            // 3. 自動計算 (sus4 対応)
             const chord = Tonal.Chord.get(chordName);
             if (!chord.empty) {
-                let type = chord.type.includes("minor seventh") ? "m7" : chord.type.includes("major seventh") ? "maj7" : chord.type.includes("minor") ? "minor" : chord.type.includes("seventh") ? "7" : chord.type.includes("ninth") ? "9" : "major";
+                // type判定ロジックを修正
+                let type = "major";
+                if (chord.type.includes("suspended") || chord.name.includes("sus4")) type = "sus4";
+                else if (chord.type.includes("minor seventh")) type = "m7";
+                else if (chord.type.includes("major seventh")) type = "maj7";
+                else if (chord.type.includes("minor")) type = "minor";
+                else if (chord.type.includes("seventh")) type = "7";
+                else if (chord.type.includes("ninth")) type = "9";
+
                 const rootChroma = Tonal.Note.chroma(chord.tonic);
                 const stringBaseNotes = [4, 9, 2, 7, 11, 4];
+                
                 ["A", "E"].forEach(style => {
                     const shape = SHAPES[style][type] || SHAPES[style]["major"];
                     const rIdx = (style === "E") ? 0 : 1;
@@ -99,7 +125,6 @@
             if (!voicingState[name]) voicingState[name] = 0;
             const all = getAllVoicings(name);
             if (all.length === 0) return;
-
             const frets = all[voicingState[name] % all.length];
             const active = frets.filter(f => f !== null && f > 0);
             const minF = active.length > 0 ? Math.min(...active) : 0;
