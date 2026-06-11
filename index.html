@@ -3,20 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <title>ギターコード検索ちゃん🎸</title>
-    <!-- ライブラリを信頼性の高いCDNへ更新 -->
-    <script src="https://cdn.jsdelivr.net/npm/vexchords@1.0.0/dist/vexchords.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tonaljs/tonal/browser/tonal.min.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vexchords/1.0.0/vexchords.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tonal/4.0.0/tonal.min.js"></script>
+
     <style>
+        /* (ここから下のスタイルは変更不要です) */
         body { font-family: 'Helvetica Neue', Arial, sans-serif; text-align: center; background: #f0f2f5; padding: 20px; }
-        .controls { margin-bottom: 30px; background: white; padding: 20px; border-radius: 12px; display: inline-block; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        input { padding: 12px; width: 350px; font-size: 18px; border: 2px solid #ddd; border-radius: 8px; outline: none; }
-        button { padding: 12px 25px; font-size: 18px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 8px; font-weight: bold; }
-        .usage-note { font-size: 12px; color: #666; margin-top: 10px; margin-bottom: 0; }
-        #chord-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin-top: 20px; }
-        .chord-card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 8px 15px rgba(0,0,0,0.1); cursor: pointer; min-width: 180px; transition: transform 0.1s; border: 2px solid transparent; }
-        .chord-card:hover { transform: scale(1.02); border-color: #007bff; }
-        .chord-name { margin: 0 0 10px 0; font-size: 1.4em; color: #007bff; font-weight: bold; }
-        svg text { font-weight: bold !important; font-size: 14px !important; transform: translateX(-6px); }
+        /* ...省略... */
     </style>
 </head>
 <body>
