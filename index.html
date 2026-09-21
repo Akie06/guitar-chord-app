@@ -418,7 +418,7 @@
             "F#/Ab": [
                 [4, null, 4, 3, 2, 2],
             ],
-  
+
             "G": [
                 [3, 2, 0, 0, 0, 3],
                 [3, 5, 5, 4, 3, 3],
@@ -796,32 +796,30 @@
 
             // フレット（横線）
             for (let i = 1; i <= 5; i++) {
-                let y = startY + fretGap * i;
-                svg += `<line x1="${startX}" y1="${y}" x2="${startX + stringGap * 5}" y2="${y}" stroke="#999" stroke-width="1"/>`;
+                svg += `<line x1="${startX}" y1="${startY + fretGap * i}" x2="${startX + stringGap * 5}" y2="${startY + fretGap * i}" stroke="#aaa" stroke-width="1"/>`;
             }
 
             // 弦（縦線）
             for (let i = 0; i < 6; i++) {
-                let x = startX + stringGap * i;
-                svg += `<line x1="${x}" y1="${startY}" x2="${x}" y2="${startY + fretGap * 5}" stroke="#999" stroke-width="1"/>`;
+                svg += `<line x1="${startX + stringGap * i}" y1="${startY}" x2="${startX + stringGap * i}" y2="${startY + fretGap * 5}" stroke="#777" stroke-width="1"/>`;
             }
 
-            // 押弦・ミュート・開放弦の表示
-            frets.forEach((fret, stringIndex) => {
-                let x = startX + stringGap * stringIndex;
+            // 各弦のフレット位置を描画
+            frets.forEach((fret, stringIdx) => {
+                const x = startX + stringGap * stringIdx;
                 if (fret === null) {
-                    // ミュート (x印)
-                    svg += `<text x="${x}" y="${startY - 6}" font-size="10" fill="#d9534f" text-anchor="middle" font-weight="bold">×</text>`;
+                    // ミュート (×)
+                    svg += `<text x="${x}" y="${startY - 8}" font-size="10" font-weight="bold" fill="#e74c3c" text-anchor="middle">×</text>`;
                 } else if (fret === 0) {
-                    // 開放弦 (〇印)
-                    svg += `<circle cx="${x}" cy="${startY - 8}" r="3.5" fill="none" stroke="#5cb85c" stroke-width="1.5"/>`;
+                    // オープン (○)
+                    svg += `<circle cx="${x}" cy="${startY - 8}" r="3" fill="none" stroke="#2ecc71" stroke-width="1.5"/>`;
                 } else {
                     // 押さえるフレット
-                    let relativeFret = fret - baseFret + 1;
+                    const relativeFret = fret - baseFret + 1;
                     if (relativeFret >= 1 && relativeFret <= 5) {
-                        let y = startY + fretGap * (relativeFret - 0.5);
+                        const y = startY + fretGap * (relativeFret - 0.5);
                         svg += `<circle cx="${x}" cy="${y}" r="6" fill="#007bff"/>`;
-                        // ローポジションなどで数字を入れる場合などの調整用テキストもここに書けます
+                        svg += `<text x="${x}" y="${y + 3.5}" font-size="9" fill="white" font-weight="bold" text-anchor="middle">${fret}</text>`;
                     }
                 }
             });
@@ -830,52 +828,45 @@
             return svg;
         }
 
-        // コード一覧を画面に更新・描画する関数
         function updateChords() {
-            let input = document.getElementById('progression').value;
-            input = input.replace(/♭/g, 'b').replace(/♯/g, '#');
-            
-            // スペースやカンマ区切りでコードを分割
-            const chords = input.trim().split(/[\s,]+/);
+            const inputVal = document.getElementById('progression').value;
+            const chords = inputVal.trim().split(/\s+/);
             const container = document.getElementById('chord-container');
             container.innerHTML = '';
 
-            chords.forEach(chordName => {
+            chords.forEach((chordName, index) => {
                 if (!chordName) return;
-                
-                if (!CHORD_DB[chordName]) {
-                    // データベースにないコードの場合のエラーカード
-                    let errCard = document.createElement('div');
-                    errCard.className = 'chord-card';
-                    errCard.innerHTML = `<p class="chord-name">${chordName}</p><p class="chord-tip">未登録のコードです</p>`;
-                    container.appendChild(errCard);
+                const voicings = CHORD_DB[chordName];
+
+                if (!voicings) {
+                    const card = document.createElement('div');
+                    card.className = 'chord-card';
+                    card.innerHTML = `<h3 class="chord-name">${chordName}</h3><p class="chord-tip">未登録</p>`;
+                    container.appendChild(card);
                     return;
                 }
 
-                if (voicingState[chordName] === undefined) {
-                    voicingState[chordName] = 0;
+                if (voicingState[index] === undefined) {
+                    voicingState[index] = 0;
                 }
-
-                const voicings = CHORD_DB[chordName];
-                const currentIndex = voicingState[chordName] % voicings.length;
-                const currentFrets = voicings[currentIndex];
+                const vIndex = voicingState[index] % voicings.length;
+                const currentFrets = voicings[vIndex];
 
                 // 基準フレットの計算
-                const activeFrets = currentFrets.filter(f => f !== null && f > 0);
-                const minFret = activeFrets.length > 0 ? Math.min(...activeFrets) : 0;
-                const baseFret = minFret > 2 ? minFret : 1;
+                let activeFrets = currentFrets.filter(f => f !== null && f > 0);
+                let minFret = activeFrets.length > 0 ? Math.min(...activeFrets) : 1;
+                let baseFret = minFret > 4 ? minFret : 1;
 
-                let card = document.createElement('div');
+                const card = document.createElement('div');
                 card.className = 'chord-card';
                 card.innerHTML = `
-                    <p class="chord-name">${chordName}</p>
-                    <p class="chord-tip">押さえ方 ${currentIndex + 1}/${voicings.length}</p>
+                    <h3 class="chord-name">${chordName}</h3>
+                    <p class="chord-tip">押さえ方: ${vIndex + 1}/${voicings.length}</p>
                     ${createChordSVG(currentFrets, baseFret)}
                 `;
 
-                // カードクリックで次の押さえ方に切り替える
                 card.onclick = () => {
-                    voicingState[chordName]++;
+                    voicingState[index] = (voicingState[index] + 1) % voicings.length;
                     updateChords();
                 };
 
@@ -883,7 +874,7 @@
             });
         }
 
-        // ページ読み込み時に初期コードを表示
+        // 初期表示
         window.onload = () => {
             updateChords();
         };
